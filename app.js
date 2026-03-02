@@ -1,5 +1,6 @@
 // Import Express.js
 const express = require('express');
+const os = require('os');
 
 // Create an Express app
 const app = express();
@@ -11,8 +12,59 @@ app.use(express.json());
 const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 
-// Route for GET requests
+
+// ===== Function to log request info =====
+function logRequest(req) {
+
+  const timestamp = new Date().toISOString();
+
+  const logData = {
+    timestamp: timestamp,
+
+    request: {
+      method: req.method,
+      url: req.originalUrl,
+      protocol: req.protocol,
+      httpVersion: req.httpVersion
+    },
+
+    network: {
+      ip: req.ip,
+      remoteAddress: req.socket?.remoteAddress,
+      remotePort: req.socket?.remotePort,
+      forwardedFor: req.headers['x-forwarded-for'],
+      realIP: req.headers['x-real-ip'],
+      host: req.headers['host']
+    },
+
+    headers: req.headers,
+
+    connection: {
+      encrypted: req.socket?.encrypted || false,
+      servername: req.socket?.servername,
+      localAddress: req.socket?.localAddress,
+      localPort: req.socket?.localPort
+    },
+
+    system: {
+      hostname: os.hostname()
+    },
+
+    body: req.body
+  };
+
+  console.log("\n================ WEBHOOK REQUEST ================\n");
+  console.log(JSON.stringify(logData, null, 2));
+  console.log("\n=================================================\n");
+}
+
+
+
+// ===== GET webhook verification =====
 app.get('/webhook', (req, res) => {
+
+  logRequest(req);
+
   const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
 
   if (mode === 'subscribe' && token === verifyToken) {
@@ -23,15 +75,34 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Route for POST requests
+
+
+// ===== POST webhook events =====
 app.post('/webhook', (req, res) => {
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  console.log(`\n\nWebhook received ${timestamp}\n`);
+
+  logRequest(req);
+
+  console.log("Webhook body:");
   console.log(JSON.stringify(req.body, null, 2));
+
   res.status(200).end();
 });
 
-// Start the server
+
+
+// ===== Catch-all route to log unexpected calls =====
+app.all('*', (req, res) => {
+
+  logRequest(req);
+
+  res.status(404).json({
+    message: "Endpoint not found"
+  });
+});
+
+
+
+// ===== Start the server =====
 app.listen(port, () => {
   console.log(`\nListening on port ${port}\n`);
 });
