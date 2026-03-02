@@ -91,7 +91,7 @@ app.post('/webhook', (req, res) => {
 
 
 // ===== Catch-all route to log unexpected calls =====
-app.all('*', (req, res) => {
+app.use((req, res) => {
 
   logRequest(req);
 
